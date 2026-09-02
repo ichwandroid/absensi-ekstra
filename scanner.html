@@ -44,6 +44,7 @@
     const retryButton = document.getElementById('retryButton');
     const params = new URLSearchParams(window.location.search);
     const returnOrigin = params.get('returnOrigin');
+    const backendUrl = 'https://script.google.com/macros/s/AKfycbxyqt4qTJ7-wNBPU5dK9PaQRlu6txl4l7NaaHbFkKRyntQrnByJCnW09PuY8UNeaEO7rA/exec';
 
     function setStatus(message, isError) {
       statusEl.textContent = message;
@@ -78,14 +79,34 @@
       if (delivered) return;
       delivered = true;
       setStatus('QR terbaca. Mengirim ke halaman Admin…');
-      if (scanner && scanning) scanner.stop();
+      scanning = false;
+      if (scanner) scanner.stop().catch(function() {});
 
-      if (!window.opener || !returnOrigin) {
-        setStatus('Halaman Admin tidak ditemukan. Tutup scanner lalu buka kembali dari Admin.', true);
+      if (window.opener && returnOrigin) {
+        window.opener.postMessage({ type: 'QR_SCAN_RESULT', payload: decodedText }, returnOrigin);
+        setTimeout(function() { window.close(); }, 600);
         return;
       }
-      window.opener.postMessage({ type: 'QR_SCAN_RESULT', payload: decodedText }, returnOrigin);
-      setTimeout(function() { window.close(); }, 600);
+
+      // Scanner dapat digunakan langsung tanpa membuka halaman Admin.
+      // Apps Script memvalidasi payload sebelum mencatatnya ke Spreadsheet.
+      setStatus('QR terbaca. Menyimpan presensi…');
+      fetch(backendUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'recordPresensi', payload: decodedText })
+      }).then(function() {
+        setStatus('Data dikirim ke server. Siap scan peserta berikutnya.');
+        setTimeout(function() {
+          delivered = false;
+          startScanner();
+        }, 1200);
+      }).catch(function() {
+        setStatus('Data gagal dikirim. Periksa koneksi internet lalu coba lagi.', true);
+        delivered = false;
+        retryButton.style.display = 'block';
+      });
     }
 
     startScanner();
