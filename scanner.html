@@ -355,7 +355,14 @@
         }
         function startCamera() {
             scanner = new Html5Qrcode('reader');
-            return scanner.start(cameras[activeCameraIndex].id, { fps: 10, qrbox: { width: 220, height: 220 } }, onScanSuccess, () => { })
+            return scanner.start(cameras[activeCameraIndex].id, {
+                fps: 15,
+                qrbox: { width: 320, height: 320 },
+                videoConstraints: {
+                    width: { ideal: 1920 },
+                    height: { ideal: 1080 }
+                }
+            }, onScanSuccess, () => { })
                 .then(() => enableContinuousFocus());
         }
         function startScanner() { if (scanning || delivered) return; retryButton.style.display = 'none'; setStatus('Meminta akses kamera...'); Html5Qrcode.getCameras().then(foundCameras => { if (!foundCameras.length) throw new Error('Tidak ada kamera yang terdeteksi.'); cameras = foundCameras; const rearIndex = cameras.findIndex(camera => /back|rear|environment|belakang/i.test(camera.label || '')); activeCameraIndex = rearIndex >= 0 ? rearIndex : 0; return startCamera(); }).then(() => { scanning = true; setStatus('Kamera aktif - arahkan ke QR Code peserta.') }).catch(error => { setStatus('Kamera tidak dapat digunakan: ' + error, true); retryButton.style.display = 'block' }) }
